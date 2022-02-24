@@ -21,13 +21,13 @@ def write_to_file(result, filename):
 def transition_probability(model, tag1, tag2):
 
     if tag1 not in model['tag-tag-count']:
-        trans_prob = 0.01
+        trans_prob = 1
         pass
     else:
         if tag2 not in model['tag-tag-count'][tag1]:
-            trans_prob = 0.01
+            trans_prob = 1 / model['vocabulary-len']
         else:
-            trans_prob = model['tag-tag-count'][tag1][tag2] / model['tag-bigram-count'].get(tag1, 1)
+            trans_prob = (model['tag-tag-count'][tag1][tag2] + 1) / (model['tag-bigram-count'].get(tag1, 1) + model['vocabulary-len'])
 
     return trans_prob
 

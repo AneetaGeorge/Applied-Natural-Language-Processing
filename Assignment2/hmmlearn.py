@@ -50,6 +50,8 @@ def learn_hmm_model(train_file):
     hmm_model['open-class-tags'] = [tag for tag, vocab_set in tag_vocabulary_set.items()
                                     if len(vocab_set) > open_class_vocab_threshold]
 
+    hmm_model['vocabulary-len'] = len(vocabulary)
+
     return hmm_model
 
 
