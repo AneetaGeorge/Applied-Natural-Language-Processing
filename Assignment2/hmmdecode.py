@@ -19,27 +19,48 @@ def write_to_file(result, filename):
 
 
 def transition_probability(model, tag1, tag2):
-    trans_prob = model['tag-tag-count'][tag1].get(tag2, 0.01) / model['tag-bigram-count'].get(tag1, 1)
+
+    if tag1 not in model['tag-tag-count']:
+        trans_prob = 0.01
+        pass
+    else:
+        if tag2 not in model['tag-tag-count'][tag1]:
+            trans_prob = 0.01
+        else:
+            trans_prob = model['tag-tag-count'][tag1][tag2] / model['tag-bigram-count'].get(tag1, 1)
+
     return trans_prob
 
 
 def emission_probability(model, tag, word):
     word = word.lower()
     if word in model['word-tag-count']:
-        emission_prob = model['word-tag-count'][word].get(tag, 0) / model['tag-count'].get(tag, 0)
+        emission_prob = model['word-tag-count'][word].get(tag, 0) / model['tag-count'].get(tag, 1)
     else:
         emission_prob = 1
 
     return emission_prob
 
 
-def viterbi_hmm(hmm_model, sentence):
+def is_unknown_word(model, word):
+    word = word.lower()
+
+    if word in model['word-tag-count']:
+        return False
+
+    return True
+
+
+def viterbi_decode(hmm_model, sentence):
     tags = hmm_model['tag-count'].keys()
+    open_tags = hmm_model['open-class-tags']
     tag_probability = {}
     back_pointer = {}
     max_prev_tag = ''
 
-    for tag in tags:
+    considered_tags = tags
+
+    for tag in considered_tags:
         if tag not in tag_probability:
             tag_probability[tag] = {}
 
@@ -50,27 +71,23 @@ def viterbi_hmm(hmm_model, sentence):
         back_pointer[tag][0] = ''
 
     for t in range(1, len(sentence)):
-        for tag in tags:
-            max_prob = 0
+        if is_unknown_word(hmm_model, sentence[t]):
+            considered_tags = open_tags
+        else:
+            considered_tags = tags
+
+        for tag in considered_tags:
             emission_prob = emission_probability(hmm_model, tag, sentence[t])
-            # if 0 == emission_probability(hmm_model, tag, sentence[t]):
-            #     print("Emission 0 for ", sentence[t], tag)
-            #     tag_probability[tag][t] = 0
-            #
-            #     for prev_tag in tags:
-            #         curr_prob = tag_probability[prev_tag][t - 1] \
-            #                     * transition_probability(hmm_model, prev_tag, tag)
-            #
-            #         if max_prob < curr_prob:
-            #             max_prob = curr_prob
-            #             max_prev_tag = prev_tag
-            #     back_pointer[tag][t] = max_prev_tag
-            #
-            #     # What will be back_pointer[tag][t] here??
-            # else:
             max_prob = 0
-            for prev_tag in tags:
+
+            if is_unknown_word(hmm_model, sentence[t - 1]):
+                prev_considered_tags = open_tags
+            else:
+                prev_considered_tags = tags
+
+            for prev_tag in prev_considered_tags:
                 trans_prob = transition_probability(hmm_model, prev_tag, tag)
+
                 curr_prob = tag_probability[prev_tag][t - 1] * trans_prob
 
                 if max_prob < curr_prob:
@@ -85,8 +102,12 @@ def viterbi_hmm(hmm_model, sentence):
     most_probable_end_state = ''
 
     for tag in tags:
-        if max_prob < tag_probability[tag][last_state]:
-            max_prob = tag_probability[tag][last_state]
+        if last_state in tag_probability[tag]:
+            curr_prob = tag_probability[tag][last_state] * trans_prob
+        else:
+           continue
+        if max_prob < curr_prob:
+            max_prob = curr_prob
             most_probable_end_state = tag
 
     return backtrack(back_pointer, most_probable_end_state, last_state)
@@ -102,10 +123,11 @@ def pos_tag_sentences(test_file):
     for line in lines:
         line = line.rstrip()
         words = line.split(" ")
-        tag_sequence = viterbi_hmm(hmm_model, words)
+        tag_sequence = viterbi_decode(hmm_model, words)
 
         for i in range(len(words)):
             pos_tagged_sentences += words[i] + "/" + tag_sequence[i] + " "
+            pass
         pos_tagged_sentences += '\n'
 
     return pos_tagged_sentences
